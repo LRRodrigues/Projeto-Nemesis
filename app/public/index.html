@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Nemesis Uplink</title>
+    <style>
+        body { background: #050a14; color: #00f3ff; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .hud { border: 2px solid #00f3ff; padding: 20px; width: 400px; background: rgba(0,0,0,0.9); box-shadow: 0 0 20px rgba(0,243,255,0.2); }
+        h2 { text-align: center; border-bottom: 1px solid #00f3ff; padding-bottom: 10px; }
+        input, button { width: 100%; padding: 10px; margin: 5px 0; background: transparent; border: 1px solid #00f3ff; color: #00f3ff; box-sizing: border-box; }
+        button { background: #00f3ff; color: #000; cursor: pointer; font-weight: bold; }
+        button:hover { background: white; }
+        .hidden { display: none; }
+        #error-log { color: #ff2a2a; text-align: center; margin-top: 10px; min-height: 20px;}
+        .status { border-bottom: 1px dashed #00f3ff; padding-bottom: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 0.8em; }
+        .blink { animation: blinker 1s linear infinite; color: red; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div class="hud">
+        <div class="status">
+            <span>UPLINK: <span id="conn-status">INICIANDO...</span></span>
+            <span>NÓ ATIVO: <span id="active-node">---</span></span>
+        </div>
+
+        <div id="login-panel">
+            <h2>IDENTIFICAÇÃO DA FROTA</h2>
+            <form id="login-form">
+                <input type="text" id="username" placeholder="IDENTIFICADOR (ex: cmdr_eva)" required>
+                <input type="password" id="password" placeholder="CÓDIGO DE ACESSO" required>
+                <button type="submit">INICIAR SESSÃO</button>
+            </form>
+        </div>
+
+        <div id="profile-panel" class="hidden">
+            <h2>DADOS DO TRIPULANTE</h2>
+            <p>NOME: <strong id="p-name"></strong></p>
+            <p>PATENTE: <span id="p-rank"></span></p>
+            <p>ID SESSÃO: <span id="p-sess" style="font-size: 0.8em"></span></p>
+            <p style="color: #ffff00; border: 1px solid #ffff00; padding: 5px; text-align: center;">
+                PROCESSADO POR:<br><strong id="p-node" style="font-size: 1.2em">---</strong>
+            </p>
+            <button id="logout-btn" style="background: #ff2a2a; color: white; border-color: #ff2a2a;">ENCERRAR CONEXÃO</button>
+        </div>
+        <div id="error-log"></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
