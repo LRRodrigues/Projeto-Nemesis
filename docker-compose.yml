@@ -1,84 +1,110 @@
 version: '3.8'
 
 services:
-  # --- 1. O ORÁCULO (DNS) ---
-  dns-oracle:
-    build: ./dns
-    container_name: dns-oracle
+  # --- 1. O COMANDANTE (Reverse Proxy & Load Balancer) ---
+  traefik:
+    image: traefik:v2.10
+    container_name: nemesis-bridge
+    command:
+      - "--api.insecure=true" # Habilita Dashboard
+      - "--providers.docker=true" # Escuta o Docker
+      - "--providers.docker.exposedbydefault=false" # Segurança: só expõe quem pedir
+      - "--entrypoints.web.address=:80" # Porta HTTP
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
+      - "80:80"     # Tráfego Web
+      - "8080:8080" # Dashboard do Traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      nemesis_net:
-        ipv4_address: 172.28.0.10
-    cap_add:
-      - NET_ADMIN
+      - cruiser_net
 
-  # --- 2. O ARQUIVO (Banco de Dados & Sessão) ---
+  # --- 2. O REATOR (Cache de Sessão Ultra-Rápido) ---
+  redis-core:
+    image: redis:alpine
+    container_name: nemesis-reactor
+    networks:
+      - cruiser_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- 3. O ARQUIVO MORTO (Persistência de Dados) ---
   db-archive:
     image: postgres:15-alpine
-    container_name: db-archive
-    hostname: db.nemesis.local
+    container_name: nemesis-db
     environment:
-      POSTGRES_USER: nemesis_admin
-      POSTGRES_PASSWORD: nemesis_secure_password
-      POSTGRES_DB: nemesis_db
+      POSTGRES_USER: admiral
+      POSTGRES_PASSWORD: secure_code_alpha
+      POSTGRES_DB: nemesis_logs
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      nemesis_net:
-        ipv4_address: 172.28.0.20
+      - cruiser_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nemesis_admin -d nemesis_db"]
+      test: ["CMD-SHELL", "pg_isready -U admiral -d nemesis_logs"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 5
 
-  # --- 3, 4, 5. A FROTA (App Servers) ---
-  app-pod-1:
+  # --- 4. ESQUADRÃO DE APLICAÇÃO (Escalável) ---
+  app-alpha:
     build: ./app
-    container_name: app-pod-1
-    hostname: app-pod-1
-    depends_on:
-      db-archive:
-        condition: service_healthy
+    container_name: app-alpha
+    hostname: alpha-deck
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`nemesis.local`)"
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
     environment: &app-env
-      DB_HOST: 172.28.0.20
-      DB_USER: nemesis_admin
-      DB_PASSWORD: nemesis_secure_password
-      DB_NAME: nemesis_db
-      SESSION_SECRET: SegredoEspacialDeAltoNivel2024
-    networks:
-      nemesis_net:
-        ipv4_address: 172.28.1.1
-
-  app-pod-2:
-    build: ./app
-    container_name: app-pod-2
-    hostname: app-pod-2
+      DB_HOST: nemesis-db
+      DB_USER: admiral
+      DB_PASSWORD: secure_code_alpha
+      REDIS_HOST: nemesis-reactor
+      SESSION_SECRET: MilitaryGradeEncryptionKey
     depends_on:
+      redis-core:
+        condition: service_healthy
       db-archive:
         condition: service_healthy
-    environment: *app-env
     networks:
-      nemesis_net:
-        ipv4_address: 172.28.1.2
+      - cruiser_net
 
-  app-pod-3:
+  app-bravo:
     build: ./app
-    container_name: app-pod-3
-    hostname: app-pod-3
+    container_name: app-bravo
+    hostname: bravo-deck
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`nemesis.local`)"
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
+    environment: *app-env
     depends_on:
+      redis-core:
+        condition: service_healthy
       db-archive:
         condition: service_healthy
-    environment: *app-env
     networks:
-      nemesis_net:
-        ipv4_address: 172.28.1.3
+      - cruiser_net
+
+  app-charlie:
+    build: ./app
+    container_name: app-charlie
+    hostname: charlie-deck
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`nemesis.local`)"
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
+    environment: *app-env
+    depends_on:
+      redis-core:
+        condition: service_healthy
+      db-archive:
+        condition: service_healthy
+    networks:
+      - cruiser_net
 
 networks:
-  nemesis_net:
+  cruiser_net:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
